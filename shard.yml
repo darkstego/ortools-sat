@@ -1,0 +1,13 @@
+name: ortools-sat
+version: 9.0.0
+
+authors:
+  - Abdulla Bubshait <darkstego@gmail.com>
+
+dependencies:
+  protobuf:
+    github: jeromegn/protobuf.cr
+  
+crystal: '>= 1.13.0'
+
+license: MIT
