@@ -4,6 +4,12 @@ require "./cp_model.pb"
 module ORTools::Sat
   VERSION = "0.1.0"
 
+  @[Link(ldflags: "#{__DIR__}/cp_sat_wrapper.o -lortools -lstdc++ -lprotobuf")]
+  lib CPSATWrapper
+	  fun cp_sat_wrapper_solve(Pointer(UInt8),LibC::SizeT, Pointer(LibC::SizeT)) : Pointer(UInt8)
+  end
+
+
   class IntVar
     getter index : Int32
     def initialize(@index)
@@ -57,16 +63,40 @@ module ORTools::Sat
       BoolVar.new(index)
     end
 
-    def add_not_equal(x : LinearExpression, y : LinearExpression)
-      constraint_proto = ConstraintProto.new(all_diff: AllDifferentConstraintProto.new(exprs: [x.to_proto, y.to_proto]))
+    def add_all_diff(*args : (LinearExpression|IntVar))
+      vars = args.map { |arg| arg.is_a?(IntVar) ? arg.to_le : arg }.to_a
+      constraint_proto = ConstraintProto.new(all_diff: AllDifferentConstraintProto.new(exprs: vars.map{ |x| x.to_proto }))
       @proto.constraints.try &.push(constraint_proto)
+    end
+
+    def solve
+      io = @proto.to_protobuf
+      buffer, size = make_buffer(io)
+      return_size_pointer = Pointer(LibC::SizeT).malloc
+      result = CPSATWrapper.cp_sat_wrapper_solve(buffer, size, return_size_pointer)
+      io = make_io(result, return_size_pointer.value)
+      response = CpSolverResponse.from_protobuf(io)
+    end
+
+    private def make_buffer(io : IO) : Tuple(Pointer(UInt8), LibC::SizeT)
+      bytes = io.to_slice
+      buffer = bytes.to_unsafe
+      size = bytes.size
+      {% if flag?(:bits64) %}
+        size = size.to_u64
+      {% else %}
+        if value > UInt32::MAX || value < 0
+          raise OverflowError.new("Value #{value} cannot be represented in UInt32")
+        end
+        size = size.to_u32
+      {% end %}
+      {buffer, size}
+    end
+
+    private def make_io(buffer : Pointer(UInt8), size : LibC::SizeT)
+      bytes = Bytes.new(buffer, size)
+      IO::Memory.new(bytes)
     end
 
   end
 end
-
-model = ORTools::Sat::Model.new
-x = model.new_int_var(0, 2, "x")
-y = model.new_int_var(0, 2, "y")
-z = model.new_int_var(0, 2, "z")
-model.add_not_equal(x.to_le, y.to_le)
