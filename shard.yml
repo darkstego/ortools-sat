@@ -1,5 +1,5 @@
 name: ortools-sat
-version: 9.0.0
+version: 0.2.0
 
 authors:
   - Abdulla Bubshait <darkstego@gmail.com>
