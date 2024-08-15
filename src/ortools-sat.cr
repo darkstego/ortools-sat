@@ -79,6 +79,11 @@ module ORTools::Sat
     def initialize(@variables=[] of Int32,@coefficients=[] of Int64,@constant=0_i64)
     end
 
+    # Needed to allow *sum* of an array of LinearExpression 
+    def self.zero
+      new
+    end
+
     def proto
       LinearExpressionProto.new(vars: @variables, coeffs: @coefficients, offset: @constant)
     end
@@ -239,6 +244,11 @@ module ORTools::Sat
     def add_at_most_one(vars : Array(BoolVar))
       contraint_proto = ConstraintProto.new(at_most_one: BoolArgumentProto.new(literals: vars.map{ |x| x.index }))
       @proto.constraints.try &.push(contraint_proto)
+    end
+
+    # Farces at least one of the provided boolean variables to be false
+    def add_not_all(vars : Array(BoolVar))
+      add_bool_or vars.map { |b| -b }
     end
 
     # Linear Constraints
