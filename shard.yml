@@ -9,8 +9,8 @@ dependencies:
     github: jeromegn/protobuf.cr
 
 scripts:
-  postinstall: cd src && g++ -c cp_sat_wrapper.cpp -o cp_sat_wrapper.o
-  
+  postinstall: cd src/ortools-sat/connector && g++ -c cp_sat_wrapper.cpp -o cp_sat_wrapper.o
+
 crystal: '>= 1.13.0'
 
 license: MIT
