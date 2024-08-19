@@ -7,8 +7,9 @@ module ORTools::Sat
 
     def initialize(@proto)
     end
+    
     def status : CpSolverStatus
-      @proto.status
+      @proto.status.not_nil!
     end
 
     # Returns true is solution was found
@@ -26,7 +27,7 @@ module ORTools::Sat
   class ValidSolution < Solution
     
     # Returns the value of the objective function if found
-    def objective_value : Int64
+    def objective_value
       @proto.objective_value
     end
 
