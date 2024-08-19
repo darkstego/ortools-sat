@@ -1,6 +1,6 @@
 # ortools-sat
 
-TODO: Write a description here
+Crystal bindings for the OR-Tools SAT Solver
 
 ## Installation
 
@@ -9,26 +9,31 @@ TODO: Write a description here
    ```yaml
    dependencies:
      ortools-sat:
-       github: your-github-user/ortools-sat
+       github: darkstego/ortools-sat
    ```
 
 2. Run `shards install`
 
 ## Usage
 
+Example:
 ```crystal
 require "ortools-sat"
+
+model = ORTools::Sat::Model.new
+a = model.new_int_var(0,5)
+b = model.new_int_var(4,10)
+model.add_constraint a > b
+solution = model.solve
+if solution.is_a? ORTools::Sat::ValidSolution
+  puts "a = #{solution.value a}"
+  puts "b = #{solution.value b}"
+end
 ```
-
-TODO: Write usage instructions here
-
-## Development
-
-TODO: Write development instructions here
 
 ## Contributing
 
-1. Fork it (<https://github.com/your-github-user/ortools-sat/fork>)
+1. Fork it (<https://github.com/darkstego/ortools-sat/fork>)
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
@@ -36,4 +41,4 @@ TODO: Write development instructions here
 
 ## Contributors
 
-- [Abdulla Bubshait](https://github.com/your-github-user) - creator and maintainer
+- [Abdulla Bubshait](https://github.com/darkstego) - creator and maintainer

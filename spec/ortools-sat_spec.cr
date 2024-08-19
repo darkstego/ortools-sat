@@ -145,5 +145,54 @@ module ORTools::Sat
         solution.objective_value.should eq 1
       end
     end
+
+    describe "Set Variable to And" do
+      it "bool should control all variables" do
+        arr = (0...3).map {|i| model.new_bool_var}
+        bool = model.new_bool_var
+        model.add_constraint (bool == 1)
+        model.set_to_bool_and(bool,arr)
+        model.minimize arr.sum
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.true?(bool).should be_true
+        arr.each {|bv| solution.true?(bv).should be_true}
+      end
+
+      it "should not find solution if bool can't control all variables" do
+        arr = (0...3).map {|i| model.new_bool_var}
+        bool = model.new_bool_var
+        model.add_constraint(bool == 1)
+        model.add_constraint(arr.first == 0)
+        model.set_to_bool_and(bool,arr)
+        solution = model.solve
+        solution.valid?.should be_false
+      end
+      
+      it "variables should control bool" do
+        arr = (0...3).map {|i| model.new_bool_var}
+        bool = model.new_bool_var
+        arr.each {|bv| model.add_constraint(bv==1)}
+        model.set_to_bool_and(bool,arr)
+        model.minimize bool.to_lexpr
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.true?(bool).should be_true
+        arr.each {|bv| solution.true?(bv).should be_true}
+      end
+
+      it "should not find solution if variables can't control bool" do
+        arr = (0...3).map {|i| model.new_bool_var}
+        bool = model.new_bool_var
+        model.add_constraint(arr.first == 0)
+        model.add_constraint(bool == 1)
+        model.set_to_bool_and(bool,arr)
+        solution = model.solve
+        solution.valid?.should be_false
+      end
+      
+    end
   end         
 end
