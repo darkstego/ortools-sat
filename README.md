@@ -21,9 +21,9 @@ Example:
 require "ortools-sat"
 
 model = ORTools::Sat::Model.new
-a = model.new_int_var(0,5)
-b = model.new_int_var(4,10)
-model.add_constraint a > b
+a = model.new_int_var(0,3)
+b = model.new_int_var(5,10)
+model.add_constraint 2*a > b
 solution = model.solve
 if solution.is_a? ORTools::Sat::ValidSolution
   puts "a = #{solution.value a}"

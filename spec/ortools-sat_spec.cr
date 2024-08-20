@@ -169,7 +169,7 @@ module ORTools::Sat
         solution = model.solve
         solution.valid?.should be_false
       end
-      
+
       it "variables should control bool" do
         arr = (0...3).map {|i| model.new_bool_var}
         bool = model.new_bool_var
@@ -192,7 +192,17 @@ module ORTools::Sat
         solution = model.solve
         solution.valid?.should be_false
       end
-      
+
+      it "should not find solution if variables can't control bool" do
+        arr = (0...3).map {|i| model.new_bool_var}
+        bool = model.new_bool_var
+        arr.map! {|b| -b}
+        model.set_to_bool_and(bool,arr)
+        model.add_constraint(bool == 1)
+        solution = model.solve
+        solution.valid?.should be_true
+      end
+
     end
-  end         
+  end
 end
