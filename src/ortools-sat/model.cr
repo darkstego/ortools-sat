@@ -170,6 +170,11 @@ module ORTools::Sat
       @proto.objective = CpObjectiveProto.new(vars: expr.variables, coeffs: expr.coefficients, offset: offset,
                                               scaling_factor: scaling_factor, domain: domain)
     end
+        # Create an objective to minimize
+    def maximize(expr : LinearExpression, domain=[] of Int64, offset : (Float64|Nil) = nil, scaling_factor : (Float64|Nil)=nil)
+      @proto.objective = CpObjectiveProto.new(vars: expr.variables, coeffs: expr.coefficients.map {|c| -c},
+                                              offset: offset, scaling_factor: -1, domain: domain)
+    end
 
     # Attempts to solve
     def solve : Solution
