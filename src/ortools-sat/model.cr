@@ -83,9 +83,14 @@ module ORTools::Sat
       @proto.constraints.try &.push(contraint_proto)
     end
 
-    # Farces at least one of the provided boolean variables to be false
-    def add_not_all(vars : Array(BoolVar))
-      add_bool_or vars.map { |b| -b }
+    # Forces at least one of the provided boolean variables to be false
+    def add_not_all(vars : Array(BoolVar),enforcement_literals=[] of BoolVar)
+      add_bool_or(vars.map { |b| -b },enforcement_literals)
+    end
+
+    # Forces all BoolVars provided to be false
+    def add_none(vars : Array(BoolVar),enforcement_literals=[] of BoolVar)
+      add_bool_and(vars.map { |b| -b },enforcement_literals)
     end
 
     # Linear Constraints
@@ -166,7 +171,7 @@ module ORTools::Sat
                                               scaling_factor: scaling_factor, domain: domain)
     end
 
-    # Attempts to solve 
+    # Attempts to solve
     def solve : Solution
       io = @proto.to_protobuf
       buffer, size = make_buffer(io)
