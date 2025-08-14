@@ -81,7 +81,7 @@ module ORTools::Sat
       it "should correctly equal the sum of an array" do
         a = model.new_int_var(-100,100)
         arr = [10.to_lexpr, -5, 20]
-        model.add_constraint(a == arr.sum)
+        model.add_constraint(a == arr.sum(LinearExpression.zero))
         solution = model.solve
         solution.should be_a ValidSolution
         next unless solution.is_a? ValidSolution
