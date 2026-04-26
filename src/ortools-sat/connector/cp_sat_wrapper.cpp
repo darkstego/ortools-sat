@@ -1,5 +1,7 @@
 #include <iostream>
+#include <vector>
 
+#include <absl/types/span.h>
 #include <ortools/sat/cp_model.h>
 #include <ortools/sat/cp_model_checker.h>
 
@@ -96,11 +98,7 @@ cp_sat_wrapper_solution_is_feasible(
     const bool res = model.ParseFromArray(model_buf, model_size);
     assert(res);
 
-    std::vector<int64_t> variable_values;
-    variable_values.reserve(solution_size);
-    for (size_t i = 0; i < solution_size; ++i) {
-        variable_values.push_back(solution_buf[i]);
-    }
+    absl::Span<const int64_t> variable_values(solution_buf, solution_size);
 
     return sat::SolutionIsFeasible(model, variable_values);
 }
