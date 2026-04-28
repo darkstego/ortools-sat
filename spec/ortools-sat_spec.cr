@@ -38,6 +38,25 @@ module ORTools::Sat
         next unless solution.is_a? ValidSolution
         bools.each { |bool| solution.true?(bool).should be_false}
       end
+
+      it "should handle negative constraints using ~" do
+        neg_bools = bools.map { |bool| ~bool }
+        model.add_bool_and(neg_bools)
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        bools.each { |bool| solution.true?(bool).should be_false}
+      end
+
+
+      it "should handle negative constraints using .not" do
+        neg_bools = bools.map { |bool| bool.not }
+        model.add_bool_and(neg_bools)
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        bools.each { |bool| solution.true?(bool).should be_false}
+      end
     end
 
     describe "#add_bool_xor" do

@@ -2,7 +2,7 @@ require "./aliases"
 require "./linear-expression"
 
 module ORTools::Sat
-  
+
   # The base variable used in Constraing Programming (CP) problems.
   #
   # This variable should not be instantiated directly, but created with `Model#new_int_var`
@@ -37,8 +37,15 @@ module ORTools::Sat
     end
   end
 
-  # This class is identical to IntVar, but is used to type check the input to literal constraints
+  # A subclass of IntVar for Booleans where 0 is falst and 1 is true
   class BoolVar < IntVar
+    def ~ : self
+      -self
+    end
+
+    def not : self
+      -self
+    end
   end
 
   # Methods added to the Int class to make building constraints easier
@@ -61,4 +68,3 @@ module ORTools::Sat
   end
 
 end
-
