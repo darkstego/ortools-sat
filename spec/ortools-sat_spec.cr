@@ -223,5 +223,29 @@ module ORTools::Sat
       end
 
     end
+
+    describe "#solve with time limit" do
+      it "still solves a small model when given a time limit" do
+        a = model.new_int_var(1,4)
+        b = model.new_int_var(1,4)
+        c = model.new_int_var(1,4)
+        model.add_all_diff([a,b,c])
+        model.minimize b.to_lexpr
+        solution = model.solve(max_time_in_seconds: 5.0)
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.value(b).should eq 1
+        solution.objective_value.should eq 1
+      end
+
+      it "accepts an integer time limit" do
+        model.add_bool_or(bools)
+        solution = model.solve(max_time_in_seconds: 5)
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        count = bools.count { |bool| solution.true?(bool) }
+        count.should be >= 1
+      end
+    end
   end
 end

@@ -120,8 +120,8 @@ module OperationsResearch
         optional :blocking_restart_multiplier, :double, 66, default: 1.4_f64
         optional :num_conflicts_before_strategy_changes, :int32, 68, default: 0
         optional :strategy_change_increase_ratio, :double, 69, default: 0_f64
-        optional :max_time_in_seconds, :double, 36, default: inf_f64
-        optional :max_deterministic_time, :double, 67, default: inf_f64
+        optional :max_time_in_seconds, :double, 36, default: Float64::INFINITY
+        optional :max_deterministic_time, :double, 67, default: Float64::INFINITY
         optional :max_number_of_conflicts, :int64, 37, default: 9223372036854775807_i64
         optional :max_memory_in_mb, :int64, 40, default: 10000_i64
         optional :absolute_gap_limit, :double, 159, default: 0.0001_f64

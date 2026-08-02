@@ -1,4 +1,5 @@
 require "./connector/cp_model.pb"
+require "./connector/sat_parameters.pb"
 require "./aliases"
 require "./int-var"
 require "./solution"
@@ -9,6 +10,7 @@ module ORTools::Sat
   @[Link(ldflags: "#{__DIR__}/connector/cp_sat_wrapper.o -lortools -lstdc++ -lprotobuf")]
   lib CPSATWrapper
     fun cp_sat_wrapper_solve(Pointer(UInt8),LibC::SizeT, Pointer(LibC::SizeT)) : Pointer(UInt8)
+    fun cp_sat_wrapper_solve_with_parameters(Pointer(UInt8), LibC::SizeT, Pointer(UInt8), LibC::SizeT, Pointer(LibC::SizeT)) : Pointer(UInt8)
   end
 
   # Model class contains all the variables and constraints that define the problem
@@ -177,11 +179,27 @@ module ORTools::Sat
     end
 
     # Attempts to solve
-    def solve : Solution
+    #
+    # When *max_time_in_seconds* is provided, the search is capped at that many
+    # seconds. If the limit is reached the solver returns the best solution found
+    # so far (status `FEASIBLE`, or `UNKNOWN` if none was found) rather than
+    # running until it can prove optimality. Omitting it keeps the default
+    # behavior of searching until optimal/infeasible.
+    def solve(max_time_in_seconds : Number? = nil) : Solution
       io = @proto.to_protobuf
       buffer, size = make_buffer(io)
       return_size_pointer = Pointer(LibC::SizeT).malloc
-      result = CPSATWrapper.cp_sat_wrapper_solve(buffer, size, return_size_pointer)
+
+      result =
+        if max_time_in_seconds.nil?
+          CPSATWrapper.cp_sat_wrapper_solve(buffer, size, return_size_pointer)
+        else
+          params = OperationsResearch::Sat::SatParameters.new(max_time_in_seconds: max_time_in_seconds.to_f64)
+          params_io = params.to_protobuf
+          params_buffer, params_size = make_buffer(params_io)
+          CPSATWrapper.cp_sat_wrapper_solve_with_parameters(buffer, size, params_buffer, params_size, return_size_pointer)
+        end
+
       io = make_io(result, return_size_pointer.value)
       proto = CpSolverResponse.from_protobuf(io)
       if Solution.valid? proto
