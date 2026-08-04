@@ -148,6 +148,7 @@ module ORTools::Sat
       @proto.constraints.try &.push(constraint.proto)
     end
 
+    # Ensures all variables given take completely distinct values from each other
     def add_all_diff(vars : Array(Expressible))
       vars = vars.map { |arg| arg.to_lexpr }
       constraint_proto = ConstraintProto.new(all_diff: AllDifferentConstraintProto.new(exprs: vars.map{ |x| x.proto }))
@@ -172,7 +173,8 @@ module ORTools::Sat
       @proto.objective = CpObjectiveProto.new(vars: expr.variables, coeffs: expr.coefficients, offset: offset,
                                               scaling_factor: scaling_factor, domain: domain)
     end
-        # Create an objective to minimize
+
+    # Create an objective to minimize
     def maximize(expr : LinearExpression, domain=[] of Int64, offset : (Float64|Nil) = nil, scaling_factor : (Float64|Nil)=nil)
       @proto.objective = CpObjectiveProto.new(vars: expr.variables, coeffs: expr.coefficients.map {|c| -c},
                                               offset: offset, scaling_factor: -1, domain: domain)
