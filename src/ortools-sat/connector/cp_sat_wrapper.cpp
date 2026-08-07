@@ -1,3 +1,5 @@
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <vector>
 
@@ -14,15 +16,22 @@ cp_sat_wrapper_solve(
     size_t* out_size)
 {
     sat::CpModelProto model;
-    bool res = model.ParseFromArray(model_buf, model_size);
-    assert(res);
+    if (!model.ParseFromArray(model_buf, model_size)) {
+        *out_size = 0;
+        return nullptr;
+    }
 
     sat::CpSolverResponse response = sat::Solve(model);
 
     *out_size = response.ByteSizeLong();
-    unsigned char* out_buf = (unsigned char*) malloc(*out_size);
-    res = response.SerializeToArray(out_buf, *out_size);
-    assert(res);
+    // Allocate at least one byte so a successful (possibly empty) response is
+    // never confused with the nullptr returned on failure below.
+    unsigned char* out_buf = (unsigned char*) malloc(*out_size + 1);
+    if (out_buf == nullptr || !response.SerializeToArray(out_buf, *out_size)) {
+        free(out_buf);
+        *out_size = 0;
+        return nullptr;
+    }
 
     return out_buf;
 }
@@ -36,19 +45,28 @@ cp_sat_wrapper_solve(
      size_t* out_size)
  {
     sat::CpModelProto model;
-    bool res = model.ParseFromArray(model_buf, model_size);
-    assert(res);
+    if (!model.ParseFromArray(model_buf, model_size)) {
+        *out_size = 0;
+        return nullptr;
+    }
 
     sat::SatParameters params;
-    res = params.ParseFromArray(params_buf, params_size);
-    assert(res);
+    if (!params.ParseFromArray(params_buf, params_size)) {
+        *out_size = 0;
+        return nullptr;
+    }
 
     sat::CpSolverResponse response = sat::SolveWithParameters(model, params);
 
     *out_size = response.ByteSizeLong();
-    unsigned char* out_buf = (unsigned char*) malloc(*out_size);
-    res = response.SerializeToArray(out_buf, *out_size);
-    assert(res);
+    // Allocate at least one byte so a successful (possibly empty) response is
+    // never confused with the nullptr returned on failure below.
+    unsigned char* out_buf = (unsigned char*) malloc(*out_size + 1);
+    if (out_buf == nullptr || !response.SerializeToArray(out_buf, *out_size)) {
+        free(out_buf);
+        *out_size = 0;
+        return nullptr;
+    }
 
     return out_buf;
 }
@@ -56,8 +74,9 @@ cp_sat_wrapper_solve(
 extern "C" char*
 cp_sat_wrapper_cp_model_stats(unsigned char* model_buf, size_t model_size) {
     sat::CpModelProto model;
-    const bool res = model.ParseFromArray(model_buf, model_size);
-    assert(res);
+    if (!model.ParseFromArray(model_buf, model_size)) {
+        return strdup("Failed to parse CpModelProto");
+    }
 
     const std::string stats = sat::CpModelStats(model);
     return strdup(stats.c_str());
@@ -70,8 +89,9 @@ cp_sat_wrapper_cp_solver_response_stats(
     bool has_objective)
 {
     sat::CpSolverResponse response;
-    const bool res = response.ParseFromArray(response_buf, response_size);
-    assert(res);
+    if (!response.ParseFromArray(response_buf, response_size)) {
+        return strdup("Failed to parse CpSolverResponse");
+    }
 
     const std::string stats = sat::CpSolverResponseStats(response, has_objective);
     return strdup(stats.c_str());
@@ -80,9 +100,12 @@ cp_sat_wrapper_cp_solver_response_stats(
 extern "C" char*
 cp_sat_wrapper_validate_cp_model(unsigned char* model_buf, size_t model_size) {
     sat::CpModelProto model;
-    const bool res = model.ParseFromArray(model_buf, model_size);
-    assert(res);
+    if (!model.ParseFromArray(model_buf, model_size)) {
+        return strdup("Failed to parse CpModelProto");
+    }
 
+    // Returns an empty string when the model is valid, otherwise a description
+    // of the first validation error found.
     const std::string stats = sat::ValidateCpModel(model);
     return strdup(stats.c_str());
 }
@@ -95,8 +118,9 @@ cp_sat_wrapper_solution_is_feasible(
     size_t solution_size)
 {
     sat::CpModelProto model;
-    const bool res = model.ParseFromArray(model_buf, model_size);
-    assert(res);
+    if (!model.ParseFromArray(model_buf, model_size)) {
+        return false;
+    }
 
     absl::Span<const int64_t> variable_values(solution_buf, solution_size);
 

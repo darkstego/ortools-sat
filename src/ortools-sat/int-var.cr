@@ -33,11 +33,20 @@ module ORTools::Sat
     {% end %}
 
     def to_lexpr : LinearExpression
-      LinearExpression.new([@index], [1_i64])
+      # A negative index encodes the negation of a variable (see #-).
+      # In a linear expression OR-Tools requires a real, non-negative
+      # variable index, so the negation must be carried by a -1
+      # coefficient rather than by the index itself. For an IntVar the
+      # negation is arithmetic (-x), matching ValidSolution#value(IntVar).
+      if @index >= 0
+        LinearExpression.new([@index], [1_i64])
+      else
+        LinearExpression.new([-@index - 1], [-1_i64])
+      end
     end
   end
 
-  # A subclass of IntVar for Booleans where 0 is falst and 1 is true
+  # A subclass of IntVar for Booleans where 0 is false and 1 is true
   class BoolVar < IntVar
     def ~ : self
       -self
@@ -45,6 +54,16 @@ module ORTools::Sat
 
     def not : self
       -self
+    end
+
+    # For a BoolVar a negative index is the logical NOT, i.e. (1 - x),
+    # matching ValidSolution#value(BoolVar).
+    def to_lexpr : LinearExpression
+      if @index >= 0
+        LinearExpression.new([@index], [1_i64])
+      else
+        LinearExpression.new([-@index - 1], [-1_i64], 1_i64)
+      end
     end
   end
 

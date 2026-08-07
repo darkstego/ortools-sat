@@ -11,7 +11,7 @@ module ORTools::Sat
     end
 
     def self.less_or_equal(lhs : LinearExpression, rhs : LinearExpression)
-      lexpr = lhs - rhs
+      lexpr = (lhs - rhs).normalize
       # negate the constant to move it to the right side of the equation
       domain = [Int64::MIN, -lexpr.constant]
       new ConstraintProto.new(linear: LinearConstraintProto.new(vars: lexpr.variables, coeffs: lexpr.coefficients, domain: domain))
@@ -30,14 +30,14 @@ module ORTools::Sat
     end
 
     def self.equal(lhs : LinearExpression, rhs : LinearExpression)
-      lexpr = lhs - rhs
+      lexpr = (lhs - rhs).normalize
       # negate the constant to move it to the right side of the equation
       domain = [-lexpr.constant, -lexpr.constant]
       new ConstraintProto.new(linear: LinearConstraintProto.new(vars: lexpr.variables, coeffs: lexpr.coefficients, domain: domain))
     end
 
     def self.not_equal(lhs : LinearExpression, rhs : LinearExpression)
-      lexpr = lhs - rhs
+      lexpr = (lhs - rhs).normalize
       # negate the constant to move it to the right side of the equation
       domain = [Int64::MIN, -lexpr.constant - 1, -lexpr.constant + 1, Int64::MAX]
       new ConstraintProto.new(linear: LinearConstraintProto.new(vars: lexpr.variables, coeffs: lexpr.coefficients, domain: domain))

@@ -11,6 +11,12 @@ module ORTools::Sat
   lib CPSATWrapper
     fun cp_sat_wrapper_solve(Pointer(UInt8),LibC::SizeT, Pointer(LibC::SizeT)) : Pointer(UInt8)
     fun cp_sat_wrapper_solve_with_parameters(Pointer(UInt8), LibC::SizeT, Pointer(UInt8), LibC::SizeT, Pointer(LibC::SizeT)) : Pointer(UInt8)
+    fun cp_sat_wrapper_validate_cp_model(Pointer(UInt8), LibC::SizeT) : Pointer(UInt8)
+  end
+
+  # Raised when the C++ solver bridge cannot process the model, e.g. when the
+  # serialized proto handed to OR-Tools cannot be parsed.
+  class SolverError < Exception
   end
 
   # Model class contains all the variables and constraints that define the problem
@@ -26,12 +32,12 @@ module ORTools::Sat
     # VARIABLES
 
     # Provides an IntVar for integer variables
-    def new_int_var(min : Int64, max : Int64, name="")
+    def new_int_var(min : Int, max : Int, name="")
       # Must use not_nil! because the compiler cannot guarantee that the array is not nil
       # even though it is initialized in the constructor
       variables = @proto.variables.not_nil!
       index = variables.size
-      variables.push(IntegerVariableProto.new(name: name, domain: [min, max]))
+      variables.push(IntegerVariableProto.new(name: name, domain: [min.to_i64, max.to_i64]))
       IntVar.new(index)
     end
 
@@ -169,15 +175,32 @@ module ORTools::Sat
     end
 
     # Create an objective to minimize
-    def minimize(expr : LinearExpression, domain=[] of Int64, offset : (Float64|Nil) = nil, scaling_factor : (Float64|Nil)=nil)
+    def minimize(expr : Expressible, domain=[] of Int64, offset : (Float64|Nil) = nil, scaling_factor : (Float64|Nil)=nil)
+      expr = expr.to_lexpr.normalize
+      # Fold any constant term of the expression into the objective offset so it
+      # is reflected in the reported objective_value.
+      offset = (offset || 0.0) + expr.constant unless expr.constant.zero?
       @proto.objective = CpObjectiveProto.new(vars: expr.variables, coeffs: expr.coefficients, offset: offset,
                                               scaling_factor: scaling_factor, domain: domain)
     end
 
-    # Create an objective to minimize
-    def maximize(expr : LinearExpression, domain=[] of Int64, offset : (Float64|Nil) = nil, scaling_factor : (Float64|Nil)=nil)
+    # Create an objective to maximize
+    #
+    # The solver only minimizes, so maximization is expressed by minimizing
+    # the negated expression. The reported `objective_value` is
+    # scaling_factor * (offset + sum(coeffs*vars)), so to keep it equal to the
+    # user's expression both the offset and the scaling factor must be negated
+    # as well (scaling_factor defaults to 1 when unset).
+    def maximize(expr : Expressible, domain=[] of Int64, offset : (Float64|Nil) = nil, scaling_factor : (Float64|Nil)=nil)
+      expr = expr.to_lexpr.normalize
+      # Fold any constant term of the expression into the offset, then negate the
+      # offset and scaling factor so the reported objective_value matches the
+      # (maximized) expression. scaling_factor defaults to 1 when unset.
+      offset = (offset || 0.0) + expr.constant unless expr.constant.zero?
+      offset = -offset unless offset.nil?
+      scaling_factor = scaling_factor.nil? ? -1.0 : -scaling_factor
       @proto.objective = CpObjectiveProto.new(vars: expr.variables, coeffs: expr.coefficients.map {|c| -c},
-                                              offset: offset, scaling_factor: -1, domain: domain)
+                                              offset: offset, scaling_factor: scaling_factor, domain: domain)
     end
 
     # Attempts to solve
@@ -202,6 +225,10 @@ module ORTools::Sat
           CPSATWrapper.cp_sat_wrapper_solve_with_parameters(buffer, size, params_buffer, params_size, return_size_pointer)
         end
 
+      if result.null?
+        raise SolverError.new("OR-Tools could not solve the model: the serialized proto was rejected by the solver bridge")
+      end
+
       io = make_io(result, return_size_pointer.value)
       proto = CpSolverResponse.from_protobuf(io)
       if Solution.valid? proto
@@ -209,6 +236,26 @@ module ORTools::Sat
       else
         Solution.new proto
       end
+    end
+
+    # Validates the model against OR-Tools' own model checker.
+    #
+    # Returns an empty string when the model is valid, otherwise a human
+    # readable description of the first problem found (e.g. an out-of-range
+    # variable reference). This is a cheap way to catch a malformed model
+    # before spending time in `#solve`.
+    def validate : String
+      io = @proto.to_protobuf
+      buffer, size = make_buffer(io)
+      result = CPSATWrapper.cp_sat_wrapper_validate_cp_model(buffer, size)
+      message = String.new(result)
+      LibC.free(result.as(Void*))
+      message
+    end
+
+    # Returns true when the model passes OR-Tools validation.
+    def valid? : Bool
+      validate.empty?
     end
 
     # Private methods
@@ -221,7 +268,11 @@ module ORTools::Sat
     end
 
     private def make_io(buffer : Pointer(UInt8), size : LibC::SizeT)
-      bytes = Bytes.new(buffer, size)
+      # Copy the response into GC-managed memory and free the buffer the
+      # C++ wrapper allocated with malloc; otherwise it leaks on every solve.
+      bytes = Bytes.new(size)
+      bytes.copy_from(buffer, size)
+      LibC.free(buffer.as(Void*))
       IO::Memory.new(bytes)
     end
 

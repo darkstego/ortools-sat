@@ -165,6 +165,31 @@ module ORTools::Sat
       end
     end
 
+    describe "maximize objective" do
+      it "should report the maximized value" do
+        a = model.new_int_var(1,4)
+        b = model.new_int_var(1,4)
+        c = model.new_int_var(1,4)
+        model.add_all_diff([a,b,c])
+        model.maximize b.to_lexpr
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.value(b).should eq 4
+        solution.objective_value.should eq 4
+      end
+
+      it "should apply the display offset to the reported value" do
+        b = model.new_int_var(1,4)
+        model.maximize b.to_lexpr, offset: 10.0
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.value(b).should eq 4
+        solution.objective_value.should eq 14
+      end
+    end
+
     describe "Set Variable to And" do
       it "bool should control all variables" do
         arr = (0...3).map {|i| model.new_bool_var}
@@ -245,6 +270,114 @@ module ORTools::Sat
         next unless solution.is_a? ValidSolution
         count = bools.count { |bool| solution.true?(bool) }
         count.should be >= 1
+      end
+    end
+
+    describe "negated IntVar in a linear expression" do
+      it "treats -x as arithmetic negation, not a bool-literal index" do
+        a = model.new_int_var(0, 10)
+        b = model.new_int_var(3, 3)          # fixed to 3
+        # a + (-b) == 0  =>  a == b == 3
+        model.add_constraint(a + (-b) == 0)
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.value(a).should eq 3
+      end
+    end
+
+    describe "#true? on a negated literal" do
+      it "reports the value of the negation, not its inverse" do
+        b = model.new_bool_var
+        model.add_constraint(b == 1)         # force b true
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.true?(b).should be_true     # b is true
+        solution.true?(-b).should be_false   # not(b) is false
+      end
+    end
+
+    describe "#new_int_var" do
+      it "accepts Int32 bounds, not just Int64" do
+        lo = 0   # Int32, not a literal in the call below
+        hi = 10
+        a = model.new_int_var(lo, hi)
+        model.add_constraint(a >= 7)
+        model.minimize a
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.value(a).should eq 7
+      end
+    end
+
+    describe "objective from an Expressible" do
+      it "minimizes a bare IntVar" do
+        a = model.new_int_var(2, 8)
+        model.minimize a
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.value(a).should eq 2
+        solution.objective_value.should eq 2
+      end
+
+      it "maximizes a bare IntVar" do
+        a = model.new_int_var(2, 8)
+        model.maximize a
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.value(a).should eq 8
+        solution.objective_value.should eq 8
+      end
+
+      it "folds a constant term into the reported objective" do
+        a = model.new_int_var(1, 4)
+        model.minimize a + 5
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.value(a).should eq 1
+        solution.objective_value.should eq 6
+      end
+    end
+
+    describe "like-term merging" do
+      it "combines duplicate variables in a linear expression proto" do
+        a = model.new_int_var(0, 10)
+        expr = (a + a + 3).to_lexpr
+        proto = expr.proto
+        proto.vars.not_nil!.size.should eq 1
+        proto.coeffs.not_nil!.first.should eq 2
+        proto.offset.should eq 3
+      end
+
+      it "combines duplicate variables when solving a constraint" do
+        a = model.new_int_var(0, 10)
+        model.add_constraint(a + a <= 5)   # 2a <= 5  =>  a <= 2
+        model.maximize a
+        solution = model.solve
+        solution.should be_a ValidSolution
+        next unless solution.is_a? ValidSolution
+        solution.value(a).should eq 2
+      end
+    end
+
+    describe "#validate" do
+      it "returns an empty string for a valid model" do
+        a = model.new_int_var(0, 10)
+        model.add_constraint(a <= 5)
+        model.validate.should eq ""
+        model.valid?.should be_true
+      end
+
+      it "reports a description for an invalid model" do
+        # An inverted domain (min > max) is empty and rejected by OR-Tools.
+        model.new_int_var(5, 1)
+        model.valid?.should be_false
+        model.validate.should_not be_empty
       end
     end
   end
