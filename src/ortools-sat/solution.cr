@@ -32,9 +32,9 @@ module ORTools::Sat
     end
 
     def true?(bool_var : BoolVar) : Bool
-      index = bool_var.index
-      value = value(bool_var) == 1
-      index >= 0 ? value : !value
+      # value() already interprets a negated literal (negative index),
+      # so no further flipping is needed here.
+      value(bool_var) == 1
     end
 
     def value(int_var : BoolVar) : Int64

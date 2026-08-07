@@ -17,8 +17,29 @@ module ORTools::Sat
       new
     end
 
+    # Combines duplicate variables by summing their coefficients and drops any
+    # term whose coefficient is zero; the constant is preserved. Returns a new,
+    # equivalent expression in which each variable appears at most once. This
+    # keeps expressions like `x + x` from emitting a proto with repeated
+    # variable references.
+    def normalize : LinearExpression
+      merged = {} of Int32 => Int64
+      @variables.each_with_index do |var, i|
+        merged[var] = (merged[var]? || 0_i64) + @coefficients[i]
+      end
+      vars = [] of Int32
+      coeffs = [] of Int64
+      merged.each do |var, coeff|
+        next if coeff.zero?
+        vars << var
+        coeffs << coeff
+      end
+      LinearExpression.new(vars, coeffs, @constant)
+    end
+
     def proto
-      LinearExpressionProto.new(vars: @variables, coeffs: @coefficients, offset: @constant)
+      norm = normalize
+      LinearExpressionProto.new(vars: norm.variables, coeffs: norm.coefficients, offset: norm.constant)
     end
 
     def +(other : Expressible)
